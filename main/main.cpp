@@ -15,14 +15,17 @@ using namespace std;
 using namespace cv;
 using namespace cv::xfeatures2d;
 
-#define MAX_FRAME 25
+#define MAX_FRAME 1
 #define CLOCK_PER_SEC 1000
 #define STAR_MAXSIZE 30
 #define STAR_RESPONSE_TH 20
 #define STAR_LINEBACKPROJ 10
 #define STAR_LINEBACKBIN 8
 #define STAR_NONMAXSUPP 3
-#define MATCHING_TH 0.3
+#define MATCHING_TH 0.4
+
+double focal = 718.856; //focal lenght
+Point2d pp(607.1928,185.2157); //principle point
 
 char filename1[256], filename2[256];
 
@@ -88,17 +91,38 @@ int main()
             }
         }
 
+        //memindahkan ke vector point yang berurutan agar bisa digunakan findessentialmat()
+        vector<Point2f> point1, point2, matched_point1, matched_point2;
+
+        KeyPoint::convert(keypoint[0], point1);
+        KeyPoint::convert(keypoint[1], point2);
+
+        for(unsigned int i = 0; i < good_matches.size() ; i++)
+        {
+            int k = good_matches[i].queryIdx;
+            matched_point1.push_back(point1[k]);
+            k = good_matches[i].trainIdx;
+            matched_point2.push_back(point2[k]);
+        }
+        cout << good_matches.size() << endl << matched_point1.size() << endl << matched_point2.size() << endl;
+
+        Mat E = findEssentialMat(matched_point1, matched_point2, focal, pp, RANSAC, 0.9999, 1.0);
+        Mat R, t, mask;
+
+        recoverPose(E, matched_point1, matched_point2, R, t, focal, pp, mask);
+        cout << "E :" << E << endl ;
+        cout << "R :" << R << endl ;
+        cout << "t :" << t << endl ;
+        cout << countNonZero(mask) << endl;
         Mat img_matches;
 
         drawMatches(img1, keypoint[0], img2, keypoint[1], good_matches, img_matches);
         imshow("Keypoint Matched", img_matches);
 
         drawKeypoints(img1, keypoint[0], imgout, Scalar::all(-1),DrawMatchesFlags::DEFAULT);
-        //imshow("Keypoint detected", imgout);
+        imshow("Keypoint detected", imgout);
 
-        cout << min_dist << endl << max_dist << endl << good_matches.size() << endl;
-
-        waitKey(2);
+        waitKey(0);
     }
     return 0;
 }
