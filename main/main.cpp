@@ -15,7 +15,7 @@ using namespace std;
 using namespace cv;
 using namespace cv::xfeatures2d;
 
-#define MAX_FRAME 100
+#define MAX_FRAME 1
 #define CLOCK_PER_SEC 1000
 #define STAR_MAXSIZE 30
 #define STAR_RESPONSE_TH 20
@@ -30,7 +30,7 @@ Point2d pp(607.1928,185.2157); //principle point
 char filename1[256], filename2[256], filename3[256];
 
 Mat imgout, imresize1, imresize2, imresize3, img1, img2, img3, R_f, t_f;
-Mat K = (Mat_<float>(3,3) << 718.856, 0, 607.1928, 0, 718.856, 185.2157, 0, 0, 1);
+Mat K = (Mat_<double>(3,3) << 718.856, 0, 607.1928, 0, 718.856, 185.2157, 0, 0, 1);
 
 Size ukuran(640,480);
 
@@ -120,6 +120,7 @@ int main()
 
         R_f = R.t();
         t_f = -R.t()*t;
+        cout << t_f << endl;
 
         sprintf(filename3, "/media/dikysepta/DATA/Final Project/Datasets/dataset/sequences/00/image_0/%06d.png", frame+2);
 
@@ -157,7 +158,6 @@ int main()
         vector<Point2f> pnp_frame_1, pnp_frame_2; //variabel untuk modal triangulasi
         vector<Point2f> pnp_2d_point;
         Mat pnp_4d_point;
-        vector<Point3f> pnp_3d_point;
 
         for(unsigned int i = 0; i < good_matches2.size(); i++)
         {
@@ -172,17 +172,29 @@ int main()
                 }
             }
         }
+
+        triangulatePoints(proj_mat_1, proj_mat_2, pnp_frame_1, pnp_frame_2, pnp_4d_point);
+        vector<Point3f> pnp_3d_point;
+
+        for(int i = 0; i < index; i++)
+            pnp_3d_point.push_back(Point3f(0,0,0));
+
         for(int i = 0; i < index; i++)
         {
-            pnp_3d_point.push_back(pnp_4d_point);
+            pnp_3d_point.at(i).x = pnp_4d_point.at<float>(0,i);
+            pnp_3d_point.at(i).y = pnp_4d_point.at<float>(1,i);
+            pnp_3d_point.at(i).z = pnp_4d_point.at<float>(2,i);
         }
-        triangulatePoints(proj_mat_1, proj_mat_2, pnp_frame_1, pnp_frame_2, pnp_3d_point);
         Mat R_vec, t_vec;
-        solvePnP(pnp_3d_point, pnp_2d_point, K, 0, R_vec, t_vec, false, SOLVEPNP_ITERATIVE);
+        Mat mask1;
+        double _dc[] = {0,0,0,0};
+        solvePnPRansac(pnp_3d_point, pnp_2d_point, K, Mat(1,4,CV_64FC1,_dc), R_vec, t_vec, false, 100, 8, 0.99,mask1, SOLVEPNP_ITERATIVE);
+        Mat RTM;
+        Rodrigues(R_vec, RTM);
 
-
-//        cout << good_matches.size() << "  " << index << endl;
-        cout << pnp_3d_point.cols << endl;
+        t_f = t_f + RTM.t()*t_vec;
+        cout << t_f << endl;
+        //cout << pnp_3d_point.at(3) << endl;
         Mat img_matches;
 
 //        drawMatches(img1, keypoint[0], img2, keypoint[1], good_matches, img_matches);
